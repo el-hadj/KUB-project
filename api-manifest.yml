@@ -1,0 +1,89 @@
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api 
+spec:
+  selector:
+    matchLabels:
+      app: api 
+  replicas: 2 
+  template:
+    metadata:
+      labels:
+        app: api 
+    spec:
+      containers:
+        - name: episen-sca-api 
+          image: localhost:5000/myepisen-sca_dev:latest 
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 1337 
+        - name: episen-sca-cache
+          image: localhost:5000/myepisen-sca_cache:latest
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 6379
+
+# Service pour l'API
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api 
+spec:
+  selector:
+    app: api 
+  ports:
+    - name: http 
+      port: 80 
+      targetPort: 1337 
+
+# Service pour le cache Redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache 
+spec:
+  selector:
+    app: api 
+  ports:
+    - name: redis 
+      port: 6379 
+      targetPort: 6379 
+
+# Ingress pour exposer les services à l'extérieur
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: / 
+spec:
+  rules:
+    - host: api.localhost 
+      http:
+        paths:
+          - path: /api 
+            pathType: Prefix 
+            backend:
+              service:
+                name: api 
+                port:
+                  name: http
+          - path: /cache
+            pathType: Prefix 
+            backend:
+              service:
+                name: cache 
+                port:
+                  name: redis 
